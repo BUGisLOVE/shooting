@@ -241,6 +241,10 @@
     font-weight: 900;
     touch-action: none;
   }
+  #zoomBtn.active {
+    background: rgba(243,208,106,0.34);
+    border-color: rgba(243,208,106,0.72);
+  }
   @media (max-width: 760px) {
     #hud { padding: 10px; }
     #top { display: block; }
@@ -466,6 +470,7 @@ const hpFill = document.getElementById("hpFill");
 const playerScoreEl = document.getElementById("playerScore");
 const aiScoreEl = document.getElementById("aiScore");
 const roundNoEl = document.getElementById("roundNo");
+const zoomBtn = document.getElementById("zoomBtn");
 
 function box(w, h, d, mat, x, y, z, collide = true) {
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -598,6 +603,8 @@ function updateHud() {
   hpFill.style.width = `${Math.max(0, state.playerHp)}%`;
   const ready = state.cooldown <= 0 && state.endTimer <= 0;
   statusText.textContent = `${state.zoom ? "줌 조준" : "일반 조준"} · ${ready ? "발사 가능" : `재장전 ${state.cooldown.toFixed(1)}s`}`;
+  zoomBtn.textContent = state.zoom ? "줌 ON" : "줌";
+  zoomBtn.classList.toggle("active", state.zoom);
   scopeEl.classList.toggle("on", state.zoom);
   camera.fov = THREE.MathUtils.lerp(camera.fov, state.zoom ? 24 : 66, 0.18);
   camera.updateProjectionMatrix();
@@ -850,6 +857,11 @@ function setZoom(on) {
   state.zoom = on && state.started;
 }
 
+function toggleZoom() {
+  if (!state.started) return;
+  setZoom(!state.zoom);
+}
+
 function requestAimLock() {
   if (!renderer.domElement.requestPointerLock) return;
   try {
@@ -873,8 +885,9 @@ window.addEventListener("mousemove", e => {
   player.pitch -= e.movementY * sens;
   player.pitch = THREE.MathUtils.clamp(player.pitch, -1.18, 1.1);
 });
-renderer.domElement.addEventListener("pointerdown", e => {
-  if (!state.started || e.pointerType !== "touch" || e.clientX < window.innerWidth * 0.42) return;
+window.addEventListener("pointerdown", e => {
+  if (!state.started || !["touch", "pen"].includes(e.pointerType) || e.clientX < window.innerWidth * 0.38) return;
+  if (e.target.closest?.("#mobileControls, #firePad, #start")) return;
   e.preventDefault();
   touchLook.id = e.pointerId;
   touchLook.x = e.clientX;
@@ -927,8 +940,7 @@ document.querySelectorAll("#mobileControls button").forEach(btn => {
   btn.addEventListener("pointerup", e => { e.preventDefault(); keys[code] = false; });
   btn.addEventListener("pointerleave", () => { keys[code] = false; });
 });
-document.getElementById("zoomBtn").addEventListener("pointerdown", e => { e.preventDefault(); setZoom(true); });
-document.getElementById("zoomBtn").addEventListener("pointerup", e => { e.preventDefault(); setZoom(false); });
+zoomBtn.addEventListener("pointerdown", e => { e.preventDefault(); toggleZoom(); });
 document.getElementById("jumpBtn").addEventListener("pointerdown", e => { e.preventDefault(); jumpPlayer(); });
 document.getElementById("shotBtn").addEventListener("pointerdown", e => { e.preventDefault(); firePlayer(); });
 
