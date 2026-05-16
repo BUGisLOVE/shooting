@@ -15,7 +15,7 @@
     font-family: "Segoe UI", system-ui, sans-serif;
     user-select: none;
   }
-  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
+  canvas { display: block; width: 100vw; height: 100vh; cursor: crosshair; touch-action: none; }
   #hud {
     position: fixed;
     inset: 0;
@@ -140,7 +140,6 @@
     transition: width .18s;
   }
   #hpFill { background: linear-gradient(90deg, #5dd98b, #83c7ff); }
-  #aiFill { background: linear-gradient(90deg, #ff7c7c, #ffbd6b); }
   .label {
     min-width: 62px;
     font-size: 12px;
@@ -221,6 +220,7 @@
     font: inherit;
     font-size: 18px;
     font-weight: 900;
+    touch-action: none;
   }
   #firePad {
     position: fixed;
@@ -239,6 +239,7 @@
     background: rgba(9,14,23,0.72);
     font: inherit;
     font-weight: 900;
+    touch-action: none;
   }
   @media (max-width: 760px) {
     #hud { padding: 10px; }
@@ -249,6 +250,88 @@
     #bottom { width: calc(100vw - 20px); gap: 7px; }
     .meter { min-width: 96px; }
     #mobileControls, #firePad { display: grid; }
+  }
+  @media (orientation: landscape) and (max-height: 520px) {
+    #hud { padding: 8px; }
+    #top {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    #scoreboard {
+      min-width: 0;
+      width: auto;
+      padding: 7px;
+      gap: 7px;
+    }
+    .team {
+      min-width: 72px;
+      padding: 7px 9px;
+    }
+    .team span { font-size: 16px; }
+    #round {
+      min-width: 82px;
+      padding: 9px 10px;
+      font-size: 13px;
+    }
+    #weapon {
+      max-width: 230px;
+      margin-top: 0;
+      padding: 9px 11px;
+      font-size: 12px;
+    }
+    #weapon strong { font-size: 14px; }
+    #bottom {
+      width: min(520px, 48vw);
+      padding: 7px;
+      gap: 6px;
+      transform: translateY(2px);
+    }
+    .label { min-width: 48px; font-size: 11px; }
+    .meter {
+      min-width: 96px;
+      width: 16vw;
+      height: 10px;
+    }
+    #mobileControls {
+      display: grid;
+      left: 18px;
+      bottom: 18px;
+      grid-template-columns: repeat(3, 58px);
+      gap: 8px;
+    }
+    #mobileControls button {
+      width: 58px;
+      height: 58px;
+      font-size: 20px;
+      background: rgba(9,14,23,0.76);
+    }
+    #firePad {
+      right: 18px;
+      bottom: 18px;
+      display: grid;
+      grid-template-columns: 72px 84px;
+      grid-template-rows: 72px 72px;
+      gap: 9px;
+      align-items: stretch;
+    }
+    #firePad button {
+      width: 72px;
+      height: 72px;
+      background: rgba(9,14,23,0.78);
+    }
+    #shotBtn {
+      grid-column: 2;
+      grid-row: 1 / 3;
+      width: 84px !important;
+      height: 153px !important;
+      border-radius: 18px !important;
+      background: rgba(131,199,255,0.28) !important;
+    }
+    #message { top: 14%; font-size: 17px; }
+    #center { width: 22px; height: 22px; }
+    #center::before { left: 10px; height: 22px; }
+    #center::after { top: 10px; width: 22px; }
   }
 </style>
 </head>
@@ -268,7 +351,6 @@
   <div></div>
   <div id="bottom" class="panel">
     <span class="label">내 HP</span><div class="meter"><div id="hpFill"></div></div>
-    <span class="label">AI HP</span><div class="meter"><div id="aiFill"></div></div>
   </div>
 </div>
 <div id="center"></div>
@@ -277,12 +359,12 @@
 <div id="start">
   <div id="startCard" class="panel">
     <h1>스나이퍼 1v1</h1>
-    <p>블록형 대칭 아레나에서 AI와 단판 저격전을 합니다. 오른쪽 버튼이나 Shift로 줌, 왼쪽 클릭으로 사격합니다.</p>
+    <p>블록형 대칭 아레나에서 AI와 단판 저격전을 합니다. 휴대폰 가로 모드는 왼쪽 이동, 오른쪽 화면 드래그 조준, 버튼으로 줌/점프/발사입니다.</p>
     <button id="startBtn">시작</button>
   </div>
 </div>
 <div id="mobileControls">
-  <button data-key="KeyW">▲</button><button data-key="KeyQ">↺</button><button data-key="KeyE">↻</button>
+  <button data-key="KeyQ">↺</button><button data-key="KeyW">▲</button><button data-key="KeyE">↻</button>
   <button data-key="KeyA">◀</button><button data-key="KeyS">▼</button><button data-key="KeyD">▶</button>
 </div>
 <div id="firePad">
@@ -333,9 +415,11 @@ const mats = {
 
 const colliders = [];
 const rayTargets = [];
+const aiHitTargets = [];
 const beams = [];
 const particles = [];
 const keys = {};
+const touchLook = { id: null, x: 0, y: 0 };
 
 const state = {
   started: false,
@@ -379,7 +463,6 @@ const startEl = document.getElementById("start");
 const msgEl = document.getElementById("message");
 const statusText = document.getElementById("statusText");
 const hpFill = document.getElementById("hpFill");
-const aiFill = document.getElementById("aiFill");
 const playerScoreEl = document.getElementById("playerScore");
 const aiScoreEl = document.getElementById("aiScore");
 const roundNoEl = document.getElementById("roundNo");
@@ -437,6 +520,9 @@ function makeAi() {
   torso.position.y = 0.85;
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 0.55), new THREE.MeshLambertMaterial({ color: 0xf0c19a }));
   head.position.y = 1.72;
+  const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false });
+  const headHit = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.72, 0.72), hitMat);
+  headHit.position.y = 1.72;
   const legMat = new THREE.MeshLambertMaterial({ color: 0x5c1f28 });
   const l1 = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.34), legMat);
   const l2 = l1.clone();
@@ -445,11 +531,16 @@ function makeAi() {
   const rifle = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.45), new THREE.MeshLambertMaterial({ color: 0x141922 }));
   rifle.position.set(0.48, 1.15, -0.55);
   rifle.rotation.x = -0.08;
-  root.add(torso, head, l1, l2, rifle);
+  headHit.userData.hitType = "head";
+  torso.userData.hitType = "body";
+  l1.userData.hitType = "body";
+  l2.userData.hitType = "body";
+  aiHitTargets.push(headHit, torso, l1, l2);
+  root.add(torso, head, headHit, l1, l2, rifle);
   root.traverse(obj => {
     if (obj.isMesh) {
-      obj.castShadow = true;
-      obj.receiveShadow = true;
+      obj.castShadow = obj !== headHit;
+      obj.receiveShadow = obj !== headHit;
     }
   });
   scene.add(root);
@@ -505,7 +596,6 @@ function updateHud() {
   aiScoreEl.textContent = state.aiScore;
   roundNoEl.textContent = state.round;
   hpFill.style.width = `${Math.max(0, state.playerHp)}%`;
-  aiFill.style.width = `${Math.max(0, state.aiHp)}%`;
   const ready = state.cooldown <= 0 && state.endTimer <= 0;
   statusText.textContent = `${state.zoom ? "줌 조준" : "일반 조준"} · ${ready ? "발사 가능" : `재장전 ${state.cooldown.toFixed(1)}s`}`;
   scopeEl.classList.toggle("on", state.zoom);
@@ -556,23 +646,28 @@ function hasLineOfSight(from, to, ignoreAi = false) {
   return hits.length === 0 || (ignoreAi && hits.every(h => h.distance > dist - 0.2));
 }
 
+function tracePlayerShot(origin, dir) {
+  ai.mesh.updateMatrixWorld(true);
+  const ray = new THREE.Raycaster(origin, dir, 0.05, 82);
+  const obstacleHits = ray.intersectObjects(rayTargets, false).map(hit => ({ ...hit, kind: "obstacle" }));
+  const aiHits = ray.intersectObjects(aiHitTargets, false).map(hit => ({ ...hit, kind: "ai" }));
+  return [...obstacleHits, ...aiHits].sort((a, b) => a.distance - b.distance)[0] || null;
+}
+
 function firePlayer() {
   if (!state.started || state.endTimer > 0 || state.cooldown > 0) return;
   state.cooldown = state.zoom ? 1.15 : 1.35;
   const origin = camera.position.clone();
   const dir = directionFromCamera();
-  shootBeam(origin, origin.clone().addScaledVector(dir, 70), 0x83c7ff);
+  const hit = tracePlayerShot(origin, dir);
+  const beamEnd = hit ? hit.point : origin.clone().addScaledVector(dir, 70);
+  shootBeam(origin, beamEnd, 0x83c7ff);
 
-  const aiEye = ai.pos.clone().add(new THREE.Vector3(0, 1.25, 0));
-  const toAi = aiEye.clone().sub(origin);
-  const dist = toAi.length();
-  const angle = dir.angleTo(toAi.normalize());
-  const tolerance = state.zoom ? 0.035 : 0.065;
-  if (angle < tolerance && dist < 82 && hasLineOfSight(origin, aiEye, true)) {
-    const headshot = angle < tolerance * 0.42;
+  if (hit && hit.kind === "ai") {
+    const headshot = hit.object.userData.hitType === "head";
     const damage = headshot ? 100 : 34;
     state.aiHp = Math.max(0, state.aiHp - damage);
-    burst(aiEye, headshot ? 0xf3d06a : 0xff8787);
+    burst(hit.point, headshot ? 0xf3d06a : 0xff8787);
     setMessage(headshot ? "헤드샷" : "명중", 0.7);
     if (state.aiHp <= 0) endRound("player");
   } else {
@@ -777,6 +872,29 @@ window.addEventListener("mousemove", e => {
   player.yaw -= e.movementX * sens;
   player.pitch -= e.movementY * sens;
   player.pitch = THREE.MathUtils.clamp(player.pitch, -1.18, 1.1);
+});
+renderer.domElement.addEventListener("pointerdown", e => {
+  if (!state.started || e.pointerType !== "touch" || e.clientX < window.innerWidth * 0.42) return;
+  e.preventDefault();
+  touchLook.id = e.pointerId;
+  touchLook.x = e.clientX;
+  touchLook.y = e.clientY;
+});
+window.addEventListener("pointermove", e => {
+  if (touchLook.id !== e.pointerId) return;
+  e.preventDefault();
+  const sens = state.zoom ? 0.0022 : 0.0035;
+  player.yaw -= (e.clientX - touchLook.x) * sens;
+  player.pitch -= (e.clientY - touchLook.y) * sens;
+  player.pitch = THREE.MathUtils.clamp(player.pitch, -1.18, 1.1);
+  touchLook.x = e.clientX;
+  touchLook.y = e.clientY;
+});
+window.addEventListener("pointerup", e => {
+  if (touchLook.id === e.pointerId) touchLook.id = null;
+});
+window.addEventListener("pointercancel", e => {
+  if (touchLook.id === e.pointerId) touchLook.id = null;
 });
 window.addEventListener("keydown", e => {
   keys[e.code] = true;
